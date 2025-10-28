@@ -44,12 +44,12 @@ public class PasswordStrengthChecker {
             score += 40;
         } else if (length >= 8) {
             score += 20;
-            suggestions.add("Use 12 or more characters for better strength.");
+            suggestions.add("더 강한 비밀번호를 위해 12자 이상으로 늘려 보세요.");
         } else if (length > 0) {
             score += 10;
-            suggestions.add("Increase the length to at least 8 characters.");
+            suggestions.add("최소 8자 이상으로 길이를 늘려 주세요.");
         } else {
-            suggestions.add("Enter a password to get started.");
+            suggestions.add("분석을 시작하려면 비밀번호를 입력해 주세요.");
         }
 
         boolean hasLower = password.chars().anyMatch(Character::isLowerCase);
@@ -60,31 +60,31 @@ public class PasswordStrengthChecker {
         if (hasLower) {
             score += 15;
         } else {
-            suggestions.add("Add lowercase letters.");
+            suggestions.add("소문자를 포함해 보세요.");
         }
         if (hasUpper) {
             score += 15;
         } else {
-            suggestions.add("Add uppercase letters.");
+            suggestions.add("대문자를 추가해 주세요.");
         }
         if (hasDigit) {
             score += 15;
         } else {
-            suggestions.add("Include at least one number.");
+            suggestions.add("숫자를 하나 이상 포함해 주세요.");
         }
         if (hasSymbol) {
             score += 15;
         } else {
-            suggestions.add("Include punctuation or symbols.");
+            suggestions.add("특수문자나 기호를 넣어 주세요.");
         }
 
         if (REPEATED_CHARS.matcher(password).find()) {
             score -= 10;
-            suggestions.add("Avoid repeating the same character several times.");
+            suggestions.add("같은 문자를 여러 번 반복하지 않는 것이 좋아요.");
         }
         if (common && !password.isEmpty()) {
             score = Math.min(score, 20);
-            suggestions.add("This password appears in common password lists.");
+            suggestions.add("이 비밀번호는 흔히 사용되는 목록에 포함되어 있습니다.");
         }
 
         score = Math.max(0, Math.min(100, score));
