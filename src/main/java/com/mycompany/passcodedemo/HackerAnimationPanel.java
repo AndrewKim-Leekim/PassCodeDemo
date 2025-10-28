@@ -19,8 +19,6 @@ public class HackerAnimationPanel extends JPanel {
     private static final char[] GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!$%&*@#".toCharArray();
     private static final int STREAM_COUNT = 14;
     private static final int UPDATE_INTERVAL = 110;
-
-
     private final Random random = new Random();
     private final Timer timer;
     private final StringBuilder[] streams = new StringBuilder[STREAM_COUNT];
@@ -95,8 +93,6 @@ public class HackerAnimationPanel extends JPanel {
                 }
             }
         }
-
-
         paintLockOverlay(g2, width, height);
         g2.dispose();
     }

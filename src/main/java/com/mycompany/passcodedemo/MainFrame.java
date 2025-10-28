@@ -4,7 +4,6 @@ import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.ComponentAdapter;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GradientPaint;
@@ -12,6 +11,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.util.HashMap;
@@ -182,7 +182,6 @@ public class MainFrame extends JFrame {
                 updateFeedback(new String(passwordField.getPassword()));
             }
         });
-
         fieldPanel.add(passwordField, BorderLayout.CENTER);
         card.add(fieldPanel, gbc);
 
@@ -203,7 +202,7 @@ public class MainFrame extends JFrame {
         feedbackArea.setEditable(false);
         feedbackArea.setLineWrap(true);
         feedbackArea.setWrapStyleWord(true);
-        feedbackArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14f));
+        feedbackArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
         feedbackArea.setForeground(new Color(34, 45, 70));
         feedbackArea.setBackground(new Color(255, 255, 255, 230));
         feedbackArea.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
