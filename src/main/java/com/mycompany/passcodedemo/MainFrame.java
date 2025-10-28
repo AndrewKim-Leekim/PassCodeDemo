@@ -14,14 +14,21 @@ import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -31,6 +38,8 @@ import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.JButton;
 import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -41,11 +50,15 @@ import javax.swing.event.DocumentListener;
  */
 public class MainFrame extends JFrame {
 
+    private static final DateTimeFormatter BIRTHDATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
+
     private final PasswordStrengthChecker checker;
     private final JTextArea feedbackArea = new JTextArea();
     private final JProgressBar strengthBar = new JProgressBar(0, 100);
     private final Map<JComponent, Font> baseFonts = new HashMap<>();
     private final SecurityIllustrationPanel illustrationPanel = new SecurityIllustrationPanel();
+    private UserProfile userProfile;
 
     public MainFrame() {
         super("패스코드 데모");
@@ -183,6 +196,7 @@ public class MainFrame extends JFrame {
             }
         });
         fieldPanel.add(passwordField, BorderLayout.CENTER);
+        fieldPanel.add(createStartButton(passwordField), BorderLayout.EAST);
         card.add(fieldPanel, gbc);
 
         gbc.gridy++;
@@ -224,6 +238,188 @@ public class MainFrame extends JFrame {
 
         wrapper.add(card, BorderLayout.CENTER);
         return wrapper;
+    }
+
+    private JButton createStartButton(JPasswordField passwordField) {
+        JButton startButton = new JButton("시작");
+        startButton.setForeground(Color.WHITE);
+        startButton.setBackground(new Color(82, 120, 220));
+        startButton.setFont(startButton.getFont().deriveFont(Font.BOLD, 14f));
+        startButton.setOpaque(true);
+        startButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 160), 1, true),
+                BorderFactory.createEmptyBorder(10, 18, 10, 18)));
+        startButton.setFocusPainted(false);
+        startButton.addActionListener(e -> showRegistrationDialog(passwordField));
+        return startButton;
+    }
+
+    private void showRegistrationDialog(JPasswordField passwordField) {
+        JDialog dialog = new JDialog(this, "회원 정보 입력", true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        GradientPanel background = new GradientPanel();
+        background.setLayout(new BorderLayout(18, 18));
+        background.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+
+        JPanel card = createGlassPanel();
+        card.setLayout(new BorderLayout(0, 16));
+        card.setPreferredSize(new Dimension(Math.max(420, getWidth() / 2),
+                Math.max(420, getHeight() / 2)));
+
+        JLabel title = new JLabel("회원 가입 정보를 입력하세요", SwingConstants.LEFT);
+        title.setForeground(new Color(28, 48, 84));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        card.add(title, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(6, 6, 12, 6);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1;
+
+        JTextField nameField = new JTextField();
+        configureInputField(nameField);
+        formPanel.add(createLabeledField("이름", nameField), gbc);
+
+        gbc.gridy++;
+        JTextField emailField = new JTextField();
+        configureInputField(emailField);
+        formPanel.add(createLabeledField("이메일", emailField), gbc);
+
+        gbc.gridy++;
+        JTextField birthField = new JTextField();
+        configureInputField(birthField);
+        birthField.setToolTipText("예: 2008-05-21");
+        formPanel.add(createLabeledField("생년월일", birthField), gbc);
+
+        gbc.gridy++;
+        JPasswordField passwordInput = new JPasswordField();
+        configureInputField(passwordInput);
+        passwordInput.setEchoChar('•');
+        formPanel.add(createLabeledField("비밀번호", passwordInput), gbc);
+
+        gbc.gridy++;
+        JPasswordField confirmInput = new JPasswordField();
+        configureInputField(confirmInput);
+        confirmInput.setEchoChar('•');
+        formPanel.add(createLabeledField("비밀번호 확인", confirmInput), gbc);
+
+        card.add(formPanel, BorderLayout.CENTER);
+
+        if (userProfile != null) {
+            nameField.setText(userProfile.name);
+            emailField.setText(userProfile.email);
+            if (userProfile.birthDate != null) {
+                birthField.setText(userProfile.birthDate.format(BIRTHDATE_FORMAT));
+            }
+            passwordInput.setText(new String(passwordField.getPassword()));
+        } else {
+            passwordInput.setText(new String(passwordField.getPassword()));
+        }
+
+        JButton joinButton = new JButton("가입");
+        joinButton.setForeground(Color.WHITE);
+        joinButton.setBackground(new Color(34, 180, 115));
+        joinButton.setFont(joinButton.getFont().deriveFont(Font.BOLD, 16f));
+        joinButton.setOpaque(true);
+        joinButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(255, 255, 255, 160), 1, true),
+                BorderFactory.createEmptyBorder(12, 24, 12, 24)));
+        joinButton.setFocusPainted(false);
+
+        JPanel buttonPanel = new JPanel(new BorderLayout());
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 6, 6, 6));
+        buttonPanel.add(joinButton, BorderLayout.EAST);
+        card.add(buttonPanel, BorderLayout.SOUTH);
+
+        background.add(card, BorderLayout.CENTER);
+        dialog.setContentPane(background);
+        dialog.pack();
+        dialog.setMinimumSize(card.getPreferredSize());
+        dialog.setResizable(false);
+        dialog.setLocationRelativeTo(this);
+
+        joinButton.addActionListener(e -> {
+            List<String> errors = new ArrayList<>();
+            String name = nameField.getText().trim();
+            if (name.length() < 2) {
+                errors.add("이름을 두 글자 이상 입력해주세요.");
+            }
+
+            String email = emailField.getText().trim();
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                errors.add("올바른 이메일 형식이 아닙니다.");
+            }
+
+            String birthText = birthField.getText().trim();
+            LocalDate birthDate = null;
+            if (!birthText.isEmpty()) {
+                try {
+                    birthDate = LocalDate.parse(birthText, BIRTHDATE_FORMAT);
+                } catch (DateTimeParseException ex) {
+                    errors.add("생년월일은 yyyy-MM-dd 형식으로 입력해주세요.");
+                }
+            } else {
+                errors.add("생년월일을 입력해주세요.");
+            }
+
+            char[] passwordChars = passwordInput.getPassword();
+            char[] confirmChars = confirmInput.getPassword();
+            String password = new String(passwordChars);
+            String confirm = new String(confirmChars);
+
+            if (!password.matches("(?=.*[A-Za-z])(?=.*\\d).{8,}")) {
+                errors.add("비밀번호는 8자 이상이며 영문과 숫자를 포함해야 합니다.");
+            }
+
+            if (!password.equals(confirm)) {
+                errors.add("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+            }
+
+            if (errors.isEmpty()) {
+                userProfile = new UserProfile(name, email, birthDate, password);
+                passwordField.setText(password);
+                updateFeedback(password);
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog,
+                        String.join("\n", errors),
+                        "입력 오류", JOptionPane.ERROR_MESSAGE);
+            }
+
+            Arrays.fill(passwordChars, '\0');
+            Arrays.fill(confirmChars, '\0');
+        });
+
+        dialog.setVisible(true);
+    }
+
+    private JPanel createLabeledField(String labelText, JComponent field) {
+        JPanel panel = new JPanel(new BorderLayout(0, 6));
+        panel.setOpaque(false);
+        JLabel label = new JLabel(labelText);
+        label.setForeground(new Color(50, 70, 110));
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 13f));
+        panel.add(label, BorderLayout.NORTH);
+        panel.add(field, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private void configureInputField(JTextField field) {
+        field.setColumns(18);
+        field.setFont(field.getFont().deriveFont(Font.PLAIN, 14f));
+        field.setForeground(new Color(30, 45, 80));
+        field.setBackground(new Color(255, 255, 255, 235));
+        field.setCaretColor(new Color(40, 70, 120));
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)));
     }
 
     private JPanel buildVisualPanel() {
@@ -292,15 +488,87 @@ public class MainFrame extends JFrame {
         sb.append(" - 강도 등급: ").append(translateStrength(analysis.strength())).append('\n');
 
         List<String> suggestions = analysis.suggestions();
-        if (suggestions.isEmpty()) {
+        List<String> similarityWarnings = collectSimilarityWarnings(password);
+
+        if (suggestions.isEmpty() && similarityWarnings.isEmpty()) {
             sb.append("\n아주 좋아요! 이 비밀번호는 상당히 안전해 보입니다.\n");
         } else {
-            sb.append("\n개선 제안:\n");
-            for (String suggestion : suggestions) {
-                sb.append(" • ").append(suggestion).append('\n');
+            if (!suggestions.isEmpty()) {
+                sb.append("\n개선 제안:\n");
+                for (String suggestion : suggestions) {
+                    sb.append(" • ").append(suggestion).append('\n');
+                }
+            }
+
+            if (!similarityWarnings.isEmpty()) {
+                sb.append("\n개인 정보 기반 경고:\n");
+                for (String warning : similarityWarnings) {
+                    sb.append(" • ").append(warning).append('\n');
+                }
             }
         }
         feedbackArea.setText(sb.toString());
+    }
+
+    private List<String> collectSimilarityWarnings(String password) {
+        List<String> warnings = new ArrayList<>();
+        if (userProfile == null || password == null || password.isBlank()) {
+            return warnings;
+        }
+
+        String lowerPassword = password.toLowerCase();
+
+        if (userProfile.name != null && !userProfile.name.isBlank()) {
+            String[] nameTokens = userProfile.name.toLowerCase().split("\\s+");
+            for (String token : nameTokens) {
+                if (token.length() >= 2 && lowerPassword.contains(token)) {
+                    addUniqueWarning(warnings, "비밀번호에 이름과 유사한 문자열이 포함되어 있습니다.");
+                    break;
+                }
+            }
+        }
+
+        if (userProfile.email != null && !userProfile.email.isBlank()) {
+            String emailLower = userProfile.email.toLowerCase();
+            if (lowerPassword.contains(emailLower)) {
+                addUniqueWarning(warnings, "비밀번호에 이메일 전체가 포함되어 있습니다.");
+            }
+            int atIndex = emailLower.indexOf('@');
+            if (atIndex > 0) {
+                String localPart = emailLower.substring(0, atIndex);
+                if (localPart.length() >= 3 && lowerPassword.contains(localPart)) {
+                    addUniqueWarning(warnings, "비밀번호에 이메일 아이디 부분이 포함되어 있습니다.");
+                }
+                String domainPart = emailLower.substring(atIndex + 1);
+                if (!domainPart.isBlank() && lowerPassword.contains(domainPart)) {
+                    addUniqueWarning(warnings, "비밀번호에 이메일 도메인이 포함되어 있습니다.");
+                }
+            }
+        }
+
+        if (userProfile.birthDate != null) {
+            String digits = userProfile.birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
+            if (lowerPassword.contains(digits)) {
+                addUniqueWarning(warnings, "비밀번호에 생년월일이 그대로 포함되어 있습니다.");
+            }
+            String year = String.valueOf(userProfile.birthDate.getYear());
+            if (lowerPassword.contains(year)) {
+                addUniqueWarning(warnings, "비밀번호에 출생 연도가 포함되어 있습니다.");
+            }
+            String monthDay = String.format("%02d%02d", userProfile.birthDate.getMonthValue(),
+                    userProfile.birthDate.getDayOfMonth());
+            if (lowerPassword.contains(monthDay)) {
+                addUniqueWarning(warnings, "비밀번호에 생일(月日) 조합이 포함되어 있습니다.");
+            }
+        }
+
+        return warnings;
+    }
+
+    private void addUniqueWarning(List<String> warnings, String message) {
+        if (!warnings.contains(message)) {
+            warnings.add(message);
+        }
     }
 
     private Color resolveStrengthColor(PasswordStrengthChecker.Strength strength) {
@@ -342,6 +610,20 @@ public class MainFrame extends JFrame {
 
     private void rememberFont(JComponent component) {
         baseFonts.put(component, component.getFont());
+    }
+
+    private static class UserProfile {
+        final String name;
+        final String email;
+        final LocalDate birthDate;
+        final String password;
+
+        UserProfile(String name, String email, LocalDate birthDate, String password) {
+            this.name = name;
+            this.email = email;
+            this.birthDate = birthDate;
+            this.password = password;
+        }
     }
 
     private static class GradientPanel extends JPanel {
