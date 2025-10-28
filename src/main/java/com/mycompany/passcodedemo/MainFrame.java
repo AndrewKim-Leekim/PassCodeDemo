@@ -11,8 +11,13 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.im.InputContext;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -23,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -43,6 +49,12 @@ import javax.swing.JButton;
 import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.Timer;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.LineUnavailableException;
 
 /**
  * Main user interface frame that lets the user experiment with password
@@ -56,8 +68,12 @@ public class MainFrame extends JFrame {
     private final PasswordStrengthChecker checker;
     private final JTextArea feedbackArea = new JTextArea();
     private final JProgressBar strengthBar = new JProgressBar(0, 100);
+    private final JPasswordField passwordField = new JPasswordField(24);
     private final Map<JComponent, Font> baseFonts = new HashMap<>();
     private final SecurityIllustrationPanel illustrationPanel = new SecurityIllustrationPanel();
+    private Timer analysisTimer;
+    private Clip suspenseClip;
+    private boolean suppressLiveFeedback;
     private UserProfile userProfile;
 
     public MainFrame() {
@@ -169,7 +185,6 @@ public class MainFrame extends JFrame {
         rememberFont(iconLabel);
         fieldPanel.add(iconLabel, BorderLayout.WEST);
 
-        JPasswordField passwordField = new JPasswordField(24);
         passwordField.setEchoChar('•');
         passwordField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
@@ -182,21 +197,27 @@ public class MainFrame extends JFrame {
         passwordField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
-                updateFeedback(new String(passwordField.getPassword()));
+                if (!suppressLiveFeedback) {
+                    updateFeedback(new String(passwordField.getPassword()));
+                }
             }
 
             @Override
             public void removeUpdate(DocumentEvent e) {
-                updateFeedback(new String(passwordField.getPassword()));
+                if (!suppressLiveFeedback) {
+                    updateFeedback(new String(passwordField.getPassword()));
+                }
             }
 
             @Override
             public void changedUpdate(DocumentEvent e) {
-                updateFeedback(new String(passwordField.getPassword()));
+                if (!suppressLiveFeedback) {
+                    updateFeedback(new String(passwordField.getPassword()));
+                }
             }
         });
         fieldPanel.add(passwordField, BorderLayout.CENTER);
-        fieldPanel.add(createStartButton(passwordField), BorderLayout.EAST);
+        fieldPanel.add(createStartButton(), BorderLayout.EAST);
         card.add(fieldPanel, gbc);
 
         gbc.gridy++;
@@ -240,7 +261,7 @@ public class MainFrame extends JFrame {
         return wrapper;
     }
 
-    private JButton createStartButton(JPasswordField passwordField) {
+    private JButton createStartButton() {
         JButton startButton = new JButton("시작");
         startButton.setForeground(Color.WHITE);
         startButton.setBackground(new Color(82, 120, 220));
@@ -250,11 +271,23 @@ public class MainFrame extends JFrame {
                 BorderFactory.createLineBorder(new Color(255, 255, 255, 160), 1, true),
                 BorderFactory.createEmptyBorder(10, 18, 10, 18)));
         startButton.setFocusPainted(false);
-        startButton.addActionListener(e -> showRegistrationDialog(passwordField));
+        startButton.addActionListener(e -> {
+            clearExistingUserInputs();
+            showRegistrationDialog();
+        });
         return startButton;
     }
 
-    private void showRegistrationDialog(JPasswordField passwordField) {
+    private void clearExistingUserInputs() {
+        userProfile = null;
+        stopAnalysisAnimation();
+        suppressLiveFeedback = true;
+        passwordField.setText("");
+        suppressLiveFeedback = false;
+        updateFeedback("");
+    }
+
+    private void showRegistrationDialog() {
         JDialog dialog = new JDialog(this, "회원 정보 입력", true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
@@ -278,10 +311,22 @@ public class MainFrame extends JFrame {
         JTextField nameField = new JTextField();
         configureInputField(nameField);
         addFormRow(formPanel, 0, "이름", nameField);
+        nameField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                requestInputLocale(nameField, Locale.KOREAN);
+            }
+        });
 
         JTextField emailField = new JTextField();
         configureInputField(emailField);
         addFormRow(formPanel, 1, "이메일", emailField);
+        emailField.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                requestInputLocale(emailField, Locale.ENGLISH);
+            }
+        });
 
         JTextField birthField = new JTextField();
         configureInputField(birthField);
@@ -312,17 +357,6 @@ public class MainFrame extends JFrame {
         formScrollPane.getViewport().setOpaque(false);
         formScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         card.add(formScrollPane, BorderLayout.CENTER);
-
-        if (userProfile != null) {
-            nameField.setText(userProfile.name);
-            emailField.setText(userProfile.email);
-            if (userProfile.birthDate != null) {
-                birthField.setText(userProfile.birthDate.format(BIRTHDATE_FORMAT));
-            }
-            passwordInput.setText(new String(passwordField.getPassword()));
-        } else {
-            passwordInput.setText(new String(passwordField.getPassword()));
-        }
 
         JButton joinButton = new JButton("가입");
         joinButton.setForeground(Color.WHITE);
@@ -376,8 +410,8 @@ public class MainFrame extends JFrame {
             String password = new String(passwordChars);
             String confirm = new String(confirmChars);
 
-            if (!password.matches("(?=.*[A-Za-z])(?=.*\\d).{8,}")) {
-                errors.add("비밀번호는 8자 이상이며 영문과 숫자를 포함해야 합니다.");
+            if (password.isEmpty()) {
+                errors.add("비밀번호를 입력해주세요.");
             }
 
             if (!password.equals(confirm)) {
@@ -386,9 +420,11 @@ public class MainFrame extends JFrame {
 
             if (errors.isEmpty()) {
                 userProfile = new UserProfile(name, email, birthDate, password);
+                suppressLiveFeedback = true;
                 passwordField.setText(password);
-                updateFeedback(password);
+                suppressLiveFeedback = false;
                 dialog.dispose();
+                startAnimatedAnalysis(password);
             } else {
                 JOptionPane.showMessageDialog(dialog,
                         String.join("\n", errors),
@@ -434,6 +470,13 @@ public class MainFrame extends JFrame {
                 BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)));
         rememberFont(field);
+    }
+
+    private void requestInputLocale(Component component, Locale locale) {
+        InputContext context = component.getInputContext();
+        if (context != null) {
+            context.selectInputMethod(locale);
+        }
     }
 
     private JPanel buildVisualPanel() {
@@ -489,7 +532,13 @@ public class MainFrame extends JFrame {
     }
 
     private void updateFeedback(String password) {
+        stopAnalysisAnimation();
         PasswordStrengthChecker.Analysis analysis = checker.analyze(password);
+        applyAnalysisResult(analysis, password);
+    }
+
+    private void applyAnalysisResult(PasswordStrengthChecker.Analysis analysis, String password) {
+        String safePassword = password == null ? "" : password;
         strengthBar.setValue(analysis.score());
         strengthBar.setForeground(resolveStrengthColor(analysis.strength()));
         strengthBar.setString("강도: " + translateStrength(analysis.strength())
@@ -497,14 +546,15 @@ public class MainFrame extends JFrame {
 
         StringBuilder sb = new StringBuilder();
         sb.append("분석 요약\n");
-        sb.append(" - 길이: ").append(password.length()).append("자\n");
+        sb.append(" - 길이: ").append(safePassword.length()).append("자\n");
         sb.append(" - 흔한 비밀번호 여부: ").append(analysis.isCommonPassword() ? "예" : "아니오").append('\n');
         sb.append(" - 강도 등급: ").append(translateStrength(analysis.strength())).append('\n');
 
         List<String> suggestions = analysis.suggestions();
-        List<String> similarityWarnings = collectSimilarityWarnings(password);
+        List<String> similarityWarnings = collectSimilarityWarnings(safePassword);
+        List<String> patternWarnings = collectPatternWarnings(safePassword);
 
-        if (suggestions.isEmpty() && similarityWarnings.isEmpty()) {
+        if (suggestions.isEmpty() && similarityWarnings.isEmpty() && patternWarnings.isEmpty()) {
             sb.append("\n아주 좋아요! 이 비밀번호는 상당히 안전해 보입니다.\n");
         } else {
             if (!suggestions.isEmpty()) {
@@ -520,8 +570,16 @@ public class MainFrame extends JFrame {
                     sb.append(" • ").append(warning).append('\n');
                 }
             }
+
+            if (!patternWarnings.isEmpty()) {
+                sb.append("\n패턴 경고:\n");
+                for (String warning : patternWarnings) {
+                    sb.append(" • ").append(warning).append('\n');
+                }
+            }
         }
         feedbackArea.setText(sb.toString());
+        feedbackArea.setCaretPosition(0);
     }
 
     private List<String> collectSimilarityWarnings(String password) {
@@ -540,6 +598,8 @@ public class MainFrame extends JFrame {
                     break;
                 }
             }
+            appendPersonalNumberWarning(warnings, userProfile.name, password,
+                    "비밀번호에 이름과 연결된 숫자(%s)가 포함되어 있습니다.");
         }
 
         if (userProfile.email != null && !userProfile.email.isBlank()) {
@@ -558,25 +618,178 @@ public class MainFrame extends JFrame {
                     addUniqueWarning(warnings, "비밀번호에 이메일 도메인이 포함되어 있습니다.");
                 }
             }
+            appendPersonalNumberWarning(warnings, userProfile.email, password,
+                    "비밀번호에 이메일과 관련된 숫자(%s)가 포함되어 있습니다.");
         }
 
         if (userProfile.birthDate != null) {
             String digits = userProfile.birthDate.format(DateTimeFormatter.BASIC_ISO_DATE);
-            if (lowerPassword.contains(digits)) {
-                addUniqueWarning(warnings, "비밀번호에 생년월일이 그대로 포함되어 있습니다.");
+            if (password.contains(digits)) {
+                addUniqueWarning(warnings, "비밀번호에 생년월일(" + digits + ")이 그대로 포함되어 있습니다.");
             }
             String year = String.valueOf(userProfile.birthDate.getYear());
-            if (lowerPassword.contains(year)) {
-                addUniqueWarning(warnings, "비밀번호에 출생 연도가 포함되어 있습니다.");
+            if (password.contains(year)) {
+                addUniqueWarning(warnings, "비밀번호에 출생 연도(" + year + ")가 포함되어 있습니다.");
+            }
+            String yearSuffix = year.substring(Math.max(0, year.length() - 2));
+            if (!yearSuffix.equals(year) && password.contains(yearSuffix)) {
+                addUniqueWarning(warnings, "비밀번호에 출생 연도의 말미 숫자(" + yearSuffix + ")가 포함되어 있습니다.");
             }
             String monthDay = String.format("%02d%02d", userProfile.birthDate.getMonthValue(),
                     userProfile.birthDate.getDayOfMonth());
-            if (lowerPassword.contains(monthDay)) {
-                addUniqueWarning(warnings, "비밀번호에 생일(月日) 조합이 포함되어 있습니다.");
+            if (password.contains(monthDay)) {
+                addUniqueWarning(warnings, "비밀번호에 생일(月日) 조합(" + monthDay + ")이 포함되어 있습니다.");
             }
         }
 
         return warnings;
+    }
+
+    private void appendPersonalNumberWarning(List<String> warnings, String source, String password,
+            String messageTemplate) {
+        if (source == null || password == null) {
+            return;
+        }
+        String digits = source.replaceAll("\\D+", "");
+        if (digits.length() < 2) {
+            return;
+        }
+        int maxLength = Math.min(6, digits.length());
+        for (int length = maxLength; length >= 2; length--) {
+            for (int start = 0; start <= digits.length() - length; start++) {
+                String fragment = digits.substring(start, start + length);
+                if (!fragment.isBlank() && password.contains(fragment)) {
+                    addUniqueWarning(warnings, String.format(messageTemplate, fragment));
+                    return;
+                }
+            }
+        }
+    }
+
+    private List<String> collectPatternWarnings(String password) {
+        List<String> warnings = new ArrayList<>();
+        if (password == null || password.isBlank()) {
+            return warnings;
+        }
+
+        if (containsSequentialDigits(password, 3)) {
+            addUniqueWarning(warnings, "연속된 숫자 패턴이 감지되었습니다. 순차적인 숫자는 쉽게 추측될 수 있습니다.");
+        }
+
+        return warnings;
+    }
+
+    private boolean containsSequentialDigits(String password, int minLength) {
+        int count = 1;
+        Integer lastDigit = null;
+        Integer direction = null;
+        for (char ch : password.toCharArray()) {
+            if (Character.isDigit(ch)) {
+                int current = ch - '0';
+                if (lastDigit != null) {
+                    int diff = current - lastDigit;
+                    if (diff == 1 || diff == -1) {
+                        if (direction == null || diff == direction) {
+                            direction = diff;
+                            count++;
+                        } else {
+                            direction = diff;
+                            count = 2;
+                        }
+                    } else {
+                        direction = null;
+                        count = 1;
+                    }
+                } else {
+                    count = 1;
+                }
+                lastDigit = current;
+                if (count >= minLength) {
+                    return true;
+                }
+            } else {
+                lastDigit = null;
+                direction = null;
+                count = 0;
+            }
+        }
+        return false;
+    }
+
+    private void startAnimatedAnalysis(String password) {
+        stopAnalysisAnimation();
+        PasswordStrengthChecker.Analysis analysis = checker.analyze(password);
+        final long duration = 10_000L;
+        final long startTime = System.currentTimeMillis();
+        strengthBar.setForeground(new Color(82, 120, 220));
+        strengthBar.setValue(0);
+        strengthBar.setString("분석 중... 0%");
+        feedbackArea.setText("비밀번호를 세밀하게 분석하는 중입니다...\n긴장감 넘치는 사운드를 느껴보세요!");
+        feedbackArea.setCaretPosition(0);
+
+        playSuspenseSound(duration);
+
+        analysisTimer = new Timer(40, event -> {
+            long elapsed = System.currentTimeMillis() - startTime;
+            double progress = Math.min(1.0, (double) elapsed / duration);
+            int percent = (int) Math.round(progress * 100);
+            strengthBar.setValue(percent);
+            strengthBar.setString(String.format("분석 중... %d%%", percent));
+            if (progress >= 1.0) {
+                Timer source = (Timer) event.getSource();
+                source.stop();
+                analysisTimer = null;
+                stopSuspenseSound();
+                applyAnalysisResult(analysis, password);
+            }
+        });
+        analysisTimer.setCoalesce(true);
+        analysisTimer.start();
+    }
+
+    private void stopAnalysisAnimation() {
+        if (analysisTimer != null) {
+            analysisTimer.stop();
+            analysisTimer = null;
+        }
+        stopSuspenseSound();
+    }
+
+    private void stopSuspenseSound() {
+        if (suspenseClip != null) {
+            suspenseClip.stop();
+            suspenseClip.close();
+            suspenseClip = null;
+        }
+    }
+
+    private void playSuspenseSound(long durationMillis) {
+        stopSuspenseSound();
+        try {
+            AudioFormat format = new AudioFormat(44100f, 16, 1, true, false);
+            int totalSamples = (int) (format.getSampleRate() * durationMillis / 1000.0);
+            byte[] data = new byte[totalSamples * 2];
+            double sampleRate = format.getSampleRate();
+            for (int i = 0; i < totalSamples; i++) {
+                double sweep = 180 + 140 * Math.sin(2 * Math.PI * i / (sampleRate / 1.7));
+                double tremolo = 0.4 + 0.6 * Math.sin(2 * Math.PI * i / (sampleRate / 6.0));
+                double envelope = Math.pow(1 - (double) i / totalSamples, 0.4);
+                double sample = Math.sin(2 * Math.PI * sweep * i / sampleRate) * tremolo * envelope;
+                short value = (short) (sample * Short.MAX_VALUE);
+                data[2 * i] = (byte) (value & 0xFF);
+                data[2 * i + 1] = (byte) ((value >> 8) & 0xFF);
+            }
+
+            ByteArrayInputStream bais = new ByteArrayInputStream(data);
+            try (AudioInputStream ais = new AudioInputStream(bais, format, totalSamples)) {
+                Clip clip = AudioSystem.getClip();
+                clip.open(ais);
+                clip.start();
+                suspenseClip = clip;
+            }
+        } catch (LineUnavailableException | IOException ex) {
+            Toolkit.getDefaultToolkit().beep();
+        }
     }
 
     private void addUniqueWarning(List<String> warnings, String message) {
