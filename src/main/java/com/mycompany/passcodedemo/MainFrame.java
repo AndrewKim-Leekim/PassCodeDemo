@@ -264,8 +264,8 @@ public class MainFrame extends JFrame {
 
         JPanel card = createGlassPanel();
         card.setLayout(new BorderLayout(0, 16));
-        card.setPreferredSize(new Dimension(Math.max(420, getWidth() / 2),
-                Math.max(420, getHeight() / 2)));
+        card.setPreferredSize(new Dimension(Math.max(480, getWidth() / 2),
+                Math.max(520, getHeight() / 2)));
 
         JLabel title = new JLabel("회원 가입 정보를 입력하세요", SwingConstants.LEFT);
         title.setForeground(new Color(28, 48, 84));
@@ -274,42 +274,44 @@ public class MainFrame extends JFrame {
 
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(6, 6, 12, 6);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.weightx = 1;
 
         JTextField nameField = new JTextField();
         configureInputField(nameField);
-        formPanel.add(createLabeledField("이름", nameField), gbc);
+        addFormRow(formPanel, 0, "이름", nameField);
 
-        gbc.gridy++;
         JTextField emailField = new JTextField();
         configureInputField(emailField);
-        formPanel.add(createLabeledField("이메일", emailField), gbc);
+        addFormRow(formPanel, 1, "이메일", emailField);
 
-        gbc.gridy++;
         JTextField birthField = new JTextField();
         configureInputField(birthField);
         birthField.setToolTipText("예: 2008-05-21");
-        formPanel.add(createLabeledField("생년월일", birthField), gbc);
+        addFormRow(formPanel, 2, "생년월일", birthField);
 
-        gbc.gridy++;
         JPasswordField passwordInput = new JPasswordField();
         configureInputField(passwordInput);
         passwordInput.setEchoChar('•');
-        formPanel.add(createLabeledField("비밀번호", passwordInput), gbc);
+        addFormRow(formPanel, 3, "비밀번호", passwordInput);
 
-        gbc.gridy++;
         JPasswordField confirmInput = new JPasswordField();
         configureInputField(confirmInput);
         confirmInput.setEchoChar('•');
-        formPanel.add(createLabeledField("비밀번호 확인", confirmInput), gbc);
+        addFormRow(formPanel, 4, "비밀번호 확인", confirmInput);
 
-        card.add(formPanel, BorderLayout.CENTER);
+        GridBagConstraints fillerConstraints = new GridBagConstraints();
+        fillerConstraints.gridx = 0;
+        fillerConstraints.gridy = 5;
+        fillerConstraints.gridwidth = 2;
+        fillerConstraints.weighty = 1;
+        fillerConstraints.fill = GridBagConstraints.VERTICAL;
+        formPanel.add(Box.createVerticalGlue(), fillerConstraints);
+
+        JScrollPane formScrollPane = new JScrollPane(formPanel);
+        formScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        formScrollPane.setOpaque(false);
+        formScrollPane.getViewport().setOpaque(false);
+        formScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        card.add(formScrollPane, BorderLayout.CENTER);
 
         if (userProfile != null) {
             nameField.setText(userProfile.name);
@@ -342,7 +344,7 @@ public class MainFrame extends JFrame {
         dialog.setContentPane(background);
         dialog.pack();
         dialog.setMinimumSize(card.getPreferredSize());
-        dialog.setResizable(false);
+        dialog.setResizable(true);
         dialog.setLocationRelativeTo(this);
 
         joinButton.addActionListener(e -> {
@@ -400,15 +402,26 @@ public class MainFrame extends JFrame {
         dialog.setVisible(true);
     }
 
-    private JPanel createLabeledField(String labelText, JComponent field) {
-        JPanel panel = new JPanel(new BorderLayout(0, 6));
-        panel.setOpaque(false);
+    private void addFormRow(JPanel panel, int rowIndex, String labelText, JComponent field) {
+        GridBagConstraints labelConstraints = new GridBagConstraints();
+        labelConstraints.gridx = 0;
+        labelConstraints.gridy = rowIndex;
+        labelConstraints.anchor = GridBagConstraints.EAST;
+        labelConstraints.insets = new Insets(6, 6, 6, 12);
+
         JLabel label = new JLabel(labelText);
         label.setForeground(new Color(50, 70, 110));
-        label.setFont(label.getFont().deriveFont(Font.BOLD, 13f));
-        panel.add(label, BorderLayout.NORTH);
-        panel.add(field, BorderLayout.CENTER);
-        return panel;
+        label.setFont(label.getFont().deriveFont(Font.BOLD, 14f));
+        rememberFont(label);
+        panel.add(label, labelConstraints);
+
+        GridBagConstraints fieldConstraints = new GridBagConstraints();
+        fieldConstraints.gridx = 1;
+        fieldConstraints.gridy = rowIndex;
+        fieldConstraints.weightx = 1;
+        fieldConstraints.fill = GridBagConstraints.HORIZONTAL;
+        fieldConstraints.insets = new Insets(6, 0, 6, 6);
+        panel.add(field, fieldConstraints);
     }
 
     private void configureInputField(JTextField field) {
@@ -420,6 +433,7 @@ public class MainFrame extends JFrame {
         field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)));
+        rememberFont(field);
     }
 
     private JPanel buildVisualPanel() {
