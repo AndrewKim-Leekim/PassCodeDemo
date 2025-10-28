@@ -263,49 +263,53 @@ public class MainFrame extends JFrame {
         background.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
 
         JPanel card = createGlassPanel();
-        card.setLayout(new GridBagLayout());
-        card.setPreferredSize(new Dimension(Math.max(320, getWidth() / 3),
-                Math.max(360, getHeight() / 3)));
+        card.setLayout(new BorderLayout(0, 16));
+        card.setPreferredSize(new Dimension(Math.max(420, getWidth() / 2),
+                Math.max(420, getHeight() / 2)));
+
+        JLabel title = new JLabel("회원 가입 정보를 입력하세요", SwingConstants.LEFT);
+        title.setForeground(new Color(28, 48, 84));
+        title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
+        card.add(title, BorderLayout.NORTH);
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.insets = new Insets(6, 6, 12, 6);
         gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.weightx = 1;
 
-        JLabel title = new JLabel("회원 가입 정보를 입력하세요", SwingConstants.LEFT);
-        title.setForeground(new Color(28, 48, 84));
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 18f));
-        card.add(title, gbc);
-
-        gbc.gridy++;
         JTextField nameField = new JTextField();
         configureInputField(nameField);
-        card.add(createLabeledField("이름", nameField), gbc);
+        formPanel.add(createLabeledField("이름", nameField), gbc);
 
         gbc.gridy++;
         JTextField emailField = new JTextField();
         configureInputField(emailField);
-        card.add(createLabeledField("이메일", emailField), gbc);
+        formPanel.add(createLabeledField("이메일", emailField), gbc);
 
         gbc.gridy++;
         JTextField birthField = new JTextField();
         configureInputField(birthField);
         birthField.setToolTipText("예: 2008-05-21");
-        card.add(createLabeledField("생년월일", birthField), gbc);
+        formPanel.add(createLabeledField("생년월일", birthField), gbc);
 
         gbc.gridy++;
         JPasswordField passwordInput = new JPasswordField();
         configureInputField(passwordInput);
         passwordInput.setEchoChar('•');
-        card.add(createLabeledField("비밀번호", passwordInput), gbc);
+        formPanel.add(createLabeledField("비밀번호", passwordInput), gbc);
 
         gbc.gridy++;
         JPasswordField confirmInput = new JPasswordField();
         configureInputField(confirmInput);
         confirmInput.setEchoChar('•');
-        card.add(createLabeledField("비밀번호 확인", confirmInput), gbc);
+        formPanel.add(createLabeledField("비밀번호 확인", confirmInput), gbc);
+
+        card.add(formPanel, BorderLayout.CENTER);
 
         if (userProfile != null) {
             nameField.setText(userProfile.name);
@@ -318,28 +322,26 @@ public class MainFrame extends JFrame {
             passwordInput.setText(new String(passwordField.getPassword()));
         }
 
-        gbc.gridy++;
-        gbc.weighty = 1;
-        gbc.fill = GridBagConstraints.BOTH;
-        card.add(Box.createVerticalGlue(), gbc);
-
-        gbc.gridy++;
-        gbc.weighty = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
         JButton joinButton = new JButton("가입");
         joinButton.setForeground(Color.WHITE);
         joinButton.setBackground(new Color(34, 180, 115));
-        joinButton.setFont(joinButton.getFont().deriveFont(Font.BOLD, 15f));
+        joinButton.setFont(joinButton.getFont().deriveFont(Font.BOLD, 16f));
         joinButton.setOpaque(true);
         joinButton.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(255, 255, 255, 160), 1, true),
-                BorderFactory.createEmptyBorder(10, 18, 10, 18)));
+                BorderFactory.createEmptyBorder(12, 24, 12, 24)));
         joinButton.setFocusPainted(false);
-        card.add(joinButton, gbc);
+
+        JPanel buttonPanel = new JPanel(new BorderLayout());
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 6, 6, 6));
+        buttonPanel.add(joinButton, BorderLayout.EAST);
+        card.add(buttonPanel, BorderLayout.SOUTH);
 
         background.add(card, BorderLayout.CENTER);
         dialog.setContentPane(background);
         dialog.pack();
+        dialog.setMinimumSize(card.getPreferredSize());
         dialog.setResizable(false);
         dialog.setLocationRelativeTo(this);
 
