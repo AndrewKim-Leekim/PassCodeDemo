@@ -1,16 +1,20 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
-
 package com.mycompany.passcodedemo;
 
+import javax.swing.SwingUtilities;
+
 /**
- *
- * @author Andrew
+ * Application entry point that launches the PassCode demonstration UI.
  */
-public class PassCodeDemo {
+public final class PassCodeDemo {
+
+    private PassCodeDemo() {
+        // Utility class
+    }
 
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        SwingUtilities.invokeLater(() -> {
+            MainFrame frame = new MainFrame();
+            frame.setVisible(true);
+        });
     }
 }
