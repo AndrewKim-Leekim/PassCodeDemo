@@ -1,138 +1,221 @@
 package com.mycompany.passcodedemo;
 
-import java.awt.BasicStroke;
+import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Font;
-import java.awt.GradientPaint;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
-import java.util.Random;
+import java.net.URL;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JPanel;
-import javax.swing.Timer;
+
+import javafx.application.Platform;
+import javafx.embed.swing.JFXPanel;
+import javafx.scene.Scene;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaException;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
+import javafx.util.Duration;
 
 /**
- * Simple animated panel that gives the application a playful "hacker" vibe.
+ * Hacker animation panel backed by the {@code hacker.mp4} video clip that ships
+ * with the application resources. The panel exposes the same phase-based API as
+ * the previous hand-drawn animation so that the rest of the UI can continue to
+ * drive the narrative flow.
  */
 public class HackerAnimationPanel extends JPanel {
 
-    private static final char[] GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!$%&*@#".toCharArray();
-    private static final int STREAM_COUNT = 14;
-    private static final int UPDATE_INTERVAL = 110;
-    private final Random random = new Random();
-    private final Timer timer;
-    private final StringBuilder[] streams = new StringBuilder[STREAM_COUNT];
-    private float pulsePhase = 0f;
+    private static final AtomicBoolean FX_RUNTIME_INITIALISED = new AtomicBoolean(false);
+
+    private final JFXPanel fxPanel = new JFXPanel();
+
+    private MediaPlayer mediaPlayer;
+    private volatile boolean mediaReady;
+    private Duration pendingSeek;
+    private boolean pendingPlay;
 
     public HackerAnimationPanel() {
         setOpaque(false);
-        setBackground(new Color(8, 14, 26));
-        setForeground(new Color(0, 255, 160));
-        setFont(new Font(Font.MONOSPACED, Font.BOLD, 16));
-
-        for (int i = 0; i < streams.length; i++) {
-            streams[i] = new StringBuilder();
-        }
-
-        timer = new Timer(UPDATE_INTERVAL, e -> {
-            advanceAnimation();
-            repaint();
-        });
-        timer.start();
+        setLayout(new BorderLayout());
+        add(fxPanel, BorderLayout.CENTER);
+        ensureJavaFxRuntime();
+        Platform.runLater(this::initialiseMediaScene);
     }
 
-    private void advanceAnimation() {
-        for (StringBuilder stream : streams) {
-            if (stream.length() > 12) {
-                stream.setLength(random.nextInt(6));
-            }
-            stream.append(GLYPHS[random.nextInt(GLYPHS.length)]);
-        }
-        pulsePhase += 0.12f;
-        if (pulsePhase > Math.PI * 2) {
-            pulsePhase -= Math.PI * 2;
-        }
+    public void showSnooping() {
+        restartFrom(Duration.ZERO);
+    }
+
+    public void showAttempting() {
+        ensurePlaying();
+    }
+
+    public void showDefeated() {
+        ensurePlaying();
+    }
+
+    public void updateProgress(double progress) {
+        // The legacy drawing logic reacted to the progress value. The video-based
+        // version keeps this hook to remain API compatible, even though the
+        // supplied clip already encodes the visual progression.
     }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-
         Graphics2D g2 = (Graphics2D) g.create();
-        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         int width = getWidth();
         int height = getHeight();
 
-        GradientPaint gradient = new GradientPaint(0, 0, new Color(6, 12, 28, 230),
-                width, height, new Color(18, 70, 88, 220));
-        g2.setPaint(gradient);
+        g2.setColor(new Color(9, 16, 32, 235));
         g2.fillRoundRect(0, 0, width, height, 28, 28);
 
-        g2.setColor(new Color(0, 255, 170, 80));
-        g2.setStroke(new BasicStroke(2.5f));
+        g2.setColor(new Color(0, 0, 0, 90));
         g2.drawRoundRect(1, 1, width - 3, height - 3, 26, 26);
 
-        int columnWidth = Math.max(1, width / STREAM_COUNT);
-        float baseFontSize = Math.max(14f, columnWidth * 0.75f);
-        Font dynamicFont = getFont().deriveFont(baseFontSize);
-        g2.setFont(dynamicFont);
-
-        for (int i = 0; i < streams.length; i++) {
-            int x = i * columnWidth + columnWidth / 3;
-            StringBuilder stream = streams[i];
-            float y = dynamicFont.getSize2D() * 1.5f;
-            for (int j = stream.length() - 1; j >= 0; j--) {
-                float alpha = Math.max(0.18f, 1f - (stream.length() - 1 - j) * 0.12f);
-                g2.setColor(new Color(0f, 1f, 0.6f, Math.min(alpha, 1f)));
-                g2.drawString(String.valueOf(stream.charAt(j)), x, Math.round(y));
-                y += dynamicFont.getSize2D() * 1.25f;
-                if (y > height) {
-                    break;
-                }
-            }
-        }
-        paintLockOverlay(g2, width, height);
         g2.dispose();
-    }
-
-    private void paintLockOverlay(Graphics2D g2, int width, int height) {
-        int size = Math.min(width, height);
-        float lockSize = size * 0.32f;
-        float offsetY = (float) Math.sin(pulsePhase) * lockSize * 0.08f;
-        int centerX = width - Math.round(lockSize * 0.9f);
-        int centerY = Math.round(lockSize + offsetY);
-
-        g2.setStroke(new BasicStroke(Math.max(3f, lockSize * 0.08f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g2.setColor(new Color(0, 255, 210, 120));
-        int bodyWidth = Math.round(lockSize);
-        int bodyHeight = Math.round(lockSize * 0.85f);
-        int bodyX = centerX - bodyWidth / 2;
-        int bodyY = centerY - bodyHeight / 2;
-        g2.drawRoundRect(bodyX, bodyY, bodyWidth, bodyHeight, Math.round(lockSize * 0.3f), Math.round(lockSize * 0.3f));
-
-        int shackleWidth = Math.round(lockSize * 0.7f);
-        int shackleHeight = Math.round(lockSize * 0.6f);
-        int shackleX = centerX - shackleWidth / 2;
-        int shackleY = bodyY - shackleHeight / 2;
-        g2.drawArc(shackleX, shackleY, shackleWidth, shackleHeight, 200, 140);
-
-        g2.setColor(new Color(0, 255, 210, 70));
-        g2.fillOval(centerX - Math.round(lockSize * 0.08f),
-                centerY - Math.round(lockSize * 0.08f),
-                Math.round(lockSize * 0.16f), Math.round(lockSize * 0.16f));
-    }
-
-    @Override
-    public void addNotify() {
-        super.addNotify();
-        timer.start();
     }
 
     @Override
     public void removeNotify() {
-        timer.stop();
+        stopMedia();
         super.removeNotify();
+    }
+
+    private void ensureJavaFxRuntime() {
+        if (FX_RUNTIME_INITIALISED.compareAndSet(false, true)) {
+            CountDownLatch latch = new CountDownLatch(1);
+            Platform.startup(latch::countDown);
+            try {
+                latch.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private void initialiseMediaScene() {
+        StackPane root = new StackPane();
+        root.setStyle("-fx-background-color: rgba(9,16,32,0.9); -fx-background-radius: 24;");
+        Scene scene = new Scene(root);
+        fxPanel.setScene(scene);
+
+        URL mediaUrl = getClass().getResource("/hacker.mp4");
+        if (mediaUrl == null) {
+            installFallbackMessage(root, "hacker.mp4 리소스를 찾을 수 없습니다.");
+            return;
+        }
+
+        try {
+            Media media = new Media(mediaUrl.toExternalForm());
+            mediaPlayer = new MediaPlayer(media);
+            mediaPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            mediaPlayer.setAutoPlay(true);
+            mediaPlayer.setOnReady(() -> {
+                mediaReady = true;
+                applyPendingRequests();
+            });
+            mediaPlayer.setOnError(() -> handleMediaFailure(root));
+
+            MediaView mediaView = new MediaView(mediaPlayer);
+            mediaView.setPreserveRatio(true);
+            mediaView.fitWidthProperty().bind(root.widthProperty());
+            mediaView.fitHeightProperty().bind(root.heightProperty());
+            root.getChildren().add(mediaView);
+        } catch (MediaException ex) {
+            handleMediaFailure(root);
+        }
+    }
+
+    private void installFallbackMessage(StackPane root, String message) {
+        Label label = new Label(message);
+        label.setStyle("-fx-text-fill: white; -fx-font-size: 16px;");
+        root.getChildren().setAll(label);
+    }
+
+    private void ensurePlaying() {
+        if (mediaPlayer == null) {
+            pendingPlay = true;
+            return;
+        }
+        if (!mediaReady) {
+            pendingPlay = true;
+            return;
+        }
+        Platform.runLater(() -> {
+            MediaPlayer.Status status = mediaPlayer.getStatus();
+            if (status == MediaPlayer.Status.STOPPED || status == MediaPlayer.Status.PAUSED
+                    || status == MediaPlayer.Status.READY) {
+                mediaPlayer.play();
+            }
+        });
+    }
+
+    private void restartFrom(Duration position) {
+        if (mediaPlayer == null || !mediaReady) {
+            pendingSeek = position;
+            pendingPlay = true;
+            return;
+        }
+        Platform.runLater(() -> {
+            mediaPlayer.seek(position);
+            mediaPlayer.play();
+        });
+    }
+
+    private void applyPendingRequests() {
+        Duration seekTarget = pendingSeek;
+        boolean shouldPlay = pendingPlay;
+        pendingSeek = null;
+        pendingPlay = false;
+        if (seekTarget != null && !seekTarget.isUnknown()) {
+            Platform.runLater(() -> {
+                mediaPlayer.seek(seekTarget);
+                if (shouldPlay || mediaPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+                    mediaPlayer.play();
+                }
+            });
+        } else if (shouldPlay) {
+            Platform.runLater(() -> mediaPlayer.play());
+        }
+    }
+
+    private void stopMedia() {
+        if (mediaPlayer == null) {
+            return;
+        }
+        MediaPlayer player = mediaPlayer;
+        mediaPlayer = null;
+        mediaReady = false;
+        pendingSeek = null;
+        pendingPlay = false;
+        Platform.runLater(() -> {
+            player.stop();
+            player.dispose();
+        });
+    }
+
+    private void handleMediaFailure(StackPane root) {
+        MediaPlayer failedPlayer = mediaPlayer;
+        mediaPlayer = null;
+        mediaReady = false;
+        pendingSeek = null;
+        pendingPlay = false;
+        if (failedPlayer != null) {
+            try {
+                failedPlayer.stop();
+            } catch (IllegalStateException ignored) {
+                // If the player cannot stop due to its state we still dispose to release resources.
+            }
+            failedPlayer.dispose();
+        }
+        installFallbackMessage(root, "해커 애니메이션을 재생할 수 없습니다.");
     }
 }
