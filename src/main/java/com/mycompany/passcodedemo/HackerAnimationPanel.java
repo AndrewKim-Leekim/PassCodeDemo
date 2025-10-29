@@ -6,9 +6,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.net.URL;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JPanel;
 
 import javafx.application.Platform;
@@ -30,8 +27,6 @@ import javafx.util.Duration;
  */
 public class HackerAnimationPanel extends JPanel {
 
-    private static final AtomicBoolean FX_RUNTIME_INITIALISED = new AtomicBoolean(false);
-
     private final JFXPanel fxPanel = new JFXPanel();
 
     private MediaPlayer mediaPlayer;
@@ -43,7 +38,6 @@ public class HackerAnimationPanel extends JPanel {
         setOpaque(false);
         setLayout(new BorderLayout());
         add(fxPanel, BorderLayout.CENTER);
-        ensureJavaFxRuntime();
         Platform.runLater(this::initialiseMediaScene);
     }
 
@@ -87,18 +81,6 @@ public class HackerAnimationPanel extends JPanel {
     public void removeNotify() {
         stopMedia();
         super.removeNotify();
-    }
-
-    private void ensureJavaFxRuntime() {
-        if (FX_RUNTIME_INITIALISED.compareAndSet(false, true)) {
-            CountDownLatch latch = new CountDownLatch(1);
-            Platform.startup(latch::countDown);
-            try {
-                latch.await(10, TimeUnit.SECONDS);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-        }
     }
 
     private void initialiseMediaScene() {
