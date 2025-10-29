@@ -190,14 +190,23 @@ public class HackerAnimationPanel extends JPanel {
         mediaReady = false;
         pendingSeek = null;
         pendingPlay = false;
+        String errorDetails = null;
         if (failedPlayer != null) {
             try {
                 failedPlayer.stop();
             } catch (IllegalStateException ignored) {
                 // If the player cannot stop due to its state we still dispose to release resources.
             }
+            if (failedPlayer.getError() != null) {
+                errorDetails = failedPlayer.getError().getMessage();
+                failedPlayer.getError().printStackTrace();
+            }
             failedPlayer.dispose();
         }
-        installFallbackMessage(root, "해커 애니메이션을 재생할 수 없습니다.");
+        if (errorDetails == null || errorDetails.isBlank()) {
+            installFallbackMessage(root, "해커 애니메이션을 재생할 수 없습니다.");
+        } else {
+            installFallbackMessage(root, "해커 애니메이션을 재생할 수 없습니다.\n" + errorDetails);
+        }
     }
 }
