@@ -11,35 +11,8 @@
         <exec.mainClass>com.mycompany.passcodedemo.PassCodeDemo</exec.mainClass>
         <javafx.version>21.0.2</javafx.version>
     </properties>
-    <dependencies>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-base</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-graphics</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-controls</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-media</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openjfx</groupId>
-            <artifactId>javafx-swing</artifactId>
-            <version>${javafx.version}</version>
-        </dependency>
-
-        <!-- Native JavaFX media/graphics libraries for the host platform -->
-    </dependencies>
+    <!-- JavaFX dependencies are supplied via platform-specific profiles so that the
+         correct native classifiers are available during compilation and at runtime. -->
 
     <build>
         <plugins>
@@ -50,6 +23,25 @@
                 <configuration>
                     <release>${maven.compiler.release}</release>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-javafx-runtime</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <includeGroupIds>org.openjfx</includeGroupIds>
+                            <includeScope>runtime</includeScope>
+                            <outputDirectory>${project.build.directory}/javafx-libs</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -88,35 +80,30 @@
                     <artifactId>javafx-base</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>win</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-graphics</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>win</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-controls</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>win</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-media</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>win</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-swing</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>win</classifier>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -134,35 +121,30 @@
                     <artifactId>javafx-base</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>linux</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-graphics</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>linux</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-controls</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>linux</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-media</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>linux</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-swing</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>linux</classifier>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -181,35 +163,30 @@
                     <artifactId>javafx-base</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-graphics</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-controls</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-media</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-swing</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac</classifier>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -228,35 +205,30 @@
                     <artifactId>javafx-base</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac-aarch64</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-graphics</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac-aarch64</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-controls</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac-aarch64</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-media</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac-aarch64</classifier>
-                    <scope>runtime</scope>
                 </dependency>
                 <dependency>
                     <groupId>org.openjfx</groupId>
                     <artifactId>javafx-swing</artifactId>
                     <version>${javafx.version}</version>
                     <classifier>mac-aarch64</classifier>
-                    <scope>runtime</scope>
                 </dependency>
             </dependencies>
         </profile>

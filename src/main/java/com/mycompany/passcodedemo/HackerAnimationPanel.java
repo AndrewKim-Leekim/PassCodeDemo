@@ -32,7 +32,7 @@ public class HackerAnimationPanel extends JPanel {
     private MediaPlayer mediaPlayer;
     private volatile boolean mediaReady;
     private Duration pendingSeek;
-    private boolean pendingPlay;
+    private Boolean pendingPlay;
 
     public HackerAnimationPanel() {
         setOpaque(false);
@@ -42,7 +42,7 @@ public class HackerAnimationPanel extends JPanel {
     }
 
     public void showSnooping() {
-        restartFrom(Duration.ZERO);
+        cueIdlePose();
     }
 
     public void showAttempting() {
@@ -57,6 +57,9 @@ public class HackerAnimationPanel extends JPanel {
         // The legacy drawing logic reacted to the progress value. The video-based
         // version keeps this hook to remain API compatible, even though the
         // supplied clip already encodes the visual progression.
+        if (progress >= 1.0) {
+            cueIdlePose();
+        }
     }
 
     @Override
@@ -98,13 +101,24 @@ public class HackerAnimationPanel extends JPanel {
         try {
             Media media = new Media(mediaUrl.toExternalForm());
             mediaPlayer = new MediaPlayer(media);
-            mediaPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-            mediaPlayer.setAutoPlay(true);
+            mediaPlayer.setCycleCount(1);
+            mediaPlayer.setAutoPlay(false);
             mediaPlayer.setOnReady(() -> {
                 mediaReady = true;
+                if (pendingSeek == null && pendingPlay == null) {
+                    pendingSeek = Duration.ZERO;
+                    pendingPlay = Boolean.FALSE;
+                }
                 applyPendingRequests();
             });
             mediaPlayer.setOnError(() -> handleMediaFailure(root));
+            mediaPlayer.setOnEndOfMedia(() -> {
+                MediaPlayer player = mediaPlayer;
+                if (player != null) {
+                    player.pause();
+                    player.seek(Duration.ZERO);
+                }
+            });
 
             MediaView mediaView = new MediaView(mediaPlayer);
             mediaView.setPreserveRatio(true);
@@ -124,11 +138,11 @@ public class HackerAnimationPanel extends JPanel {
 
     private void ensurePlaying() {
         if (mediaPlayer == null) {
-            pendingPlay = true;
+            pendingPlay = Boolean.TRUE;
             return;
         }
         if (!mediaReady) {
-            pendingPlay = true;
+            pendingPlay = Boolean.TRUE;
             return;
         }
         Platform.runLater(() -> {
@@ -143,7 +157,7 @@ public class HackerAnimationPanel extends JPanel {
     private void restartFrom(Duration position) {
         if (mediaPlayer == null || !mediaReady) {
             pendingSeek = position;
-            pendingPlay = true;
+            pendingPlay = Boolean.TRUE;
             return;
         }
         Platform.runLater(() -> {
@@ -154,18 +168,28 @@ public class HackerAnimationPanel extends JPanel {
 
     private void applyPendingRequests() {
         Duration seekTarget = pendingSeek;
-        boolean shouldPlay = pendingPlay;
+        Boolean playRequest = pendingPlay;
         pendingSeek = null;
-        pendingPlay = false;
+        pendingPlay = null;
         if (seekTarget != null && !seekTarget.isUnknown()) {
             Platform.runLater(() -> {
                 mediaPlayer.seek(seekTarget);
-                if (shouldPlay || mediaPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+                if (Boolean.TRUE.equals(playRequest)) {
                     mediaPlayer.play();
+                } else if (Boolean.FALSE.equals(playRequest)) {
+                    mediaPlayer.pause();
                 }
             });
-        } else if (shouldPlay) {
-            Platform.runLater(() -> mediaPlayer.play());
+        } else if (playRequest != null) {
+            Platform.runLater(() -> {
+                if (Boolean.TRUE.equals(playRequest)) {
+                    if (mediaPlayer.getStatus() != MediaPlayer.Status.PLAYING) {
+                        mediaPlayer.play();
+                    }
+                } else {
+                    mediaPlayer.pause();
+                }
+            });
         }
     }
 
@@ -177,7 +201,7 @@ public class HackerAnimationPanel extends JPanel {
         mediaPlayer = null;
         mediaReady = false;
         pendingSeek = null;
-        pendingPlay = false;
+        pendingPlay = null;
         Platform.runLater(() -> {
             player.stop();
             player.dispose();
@@ -189,7 +213,7 @@ public class HackerAnimationPanel extends JPanel {
         mediaPlayer = null;
         mediaReady = false;
         pendingSeek = null;
-        pendingPlay = false;
+        pendingPlay = null;
         String errorDetails = null;
         if (failedPlayer != null) {
             try {
@@ -208,5 +232,17 @@ public class HackerAnimationPanel extends JPanel {
         } else {
             installFallbackMessage(root, "해커 애니메이션을 재생할 수 없습니다.\n" + errorDetails);
         }
+    }
+
+    private void cueIdlePose() {
+        if (mediaPlayer == null || !mediaReady) {
+            pendingSeek = Duration.ZERO;
+            pendingPlay = Boolean.FALSE;
+            return;
+        }
+        Platform.runLater(() -> {
+            mediaPlayer.seek(Duration.ZERO);
+            mediaPlayer.pause();
+        });
     }
 }
