@@ -70,10 +70,13 @@ public class MainFrame extends JFrame {
     private final JProgressBar strengthBar = new JProgressBar(0, 100);
     private final JPasswordField passwordField = new JPasswordField(24);
     private final Map<JComponent, Font> baseFonts = new HashMap<>();
+    private final HackerAnimationPanel hackerAnimationPanel = new HackerAnimationPanel();
     private final SecurityIllustrationPanel illustrationPanel = new SecurityIllustrationPanel();
     private Timer analysisTimer;
+    private Timer resetTimer;
     private Clip suspenseClip;
     private boolean suppressLiveFeedback;
+    private boolean defeatAnimationShown;
     private UserProfile userProfile;
 
     public MainFrame() {
@@ -129,7 +132,7 @@ public class MainFrame extends JFrame {
         header.setOpaque(false);
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
-        JLabel title = new JLabel("비밀번호 강도 플레이그라운드", SwingConstants.LEFT);
+        JLabel title = new JLabel("🛡️ 비밀번호 강도 플레이그라운드", SwingConstants.LEFT);
         title.setForeground(Color.WHITE);
         title.setFont(title.getFont().deriveFont(Font.BOLD, 30f));
         rememberFont(title);
@@ -189,7 +192,7 @@ public class MainFrame extends JFrame {
         passwordField.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
                 BorderFactory.createEmptyBorder(10, 12, 10, 12)));
-        passwordField.setBackground(new Color(255, 255, 255, 240));
+        passwordField.setBackground(new Color(255, 255, 255));
         passwordField.setFont(passwordField.getFont().deriveFont(Font.PLAIN, 16f));
         passwordField.setCaretColor(new Color(40, 70, 120));
         passwordField.setForeground(new Color(30, 45, 80));
@@ -225,7 +228,7 @@ public class MainFrame extends JFrame {
         strengthBar.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(120, 140, 180), 1, true),
                 BorderFactory.createEmptyBorder(6, 6, 6, 6)));
-        strengthBar.setBackground(new Color(235, 240, 255, 200));
+        strengthBar.setBackground(new Color(235, 240, 255));
         strengthBar.setForeground(new Color(34, 180, 115));
         strengthBar.setFont(strengthBar.getFont().deriveFont(Font.BOLD, 14f));
         rememberFont(strengthBar);
@@ -239,7 +242,7 @@ public class MainFrame extends JFrame {
         feedbackArea.setWrapStyleWord(true);
         feedbackArea.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 14));
         feedbackArea.setForeground(new Color(34, 45, 70));
-        feedbackArea.setBackground(new Color(255, 255, 255, 230));
+        feedbackArea.setBackground(new Color(255, 255, 255));
         feedbackArea.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
         rememberFont(feedbackArea);
         JScrollPane scrollPane = new JScrollPane(feedbackArea);
@@ -279,6 +282,7 @@ public class MainFrame extends JFrame {
     }
 
     private void clearExistingUserInputs() {
+        stopResetCycle();
         userProfile = null;
         stopAnalysisAnimation();
         suppressLiveFeedback = true;
@@ -300,7 +304,7 @@ public class MainFrame extends JFrame {
         card.setPreferredSize(new Dimension(Math.max(480, getWidth() / 2),
                 Math.max(520, getHeight() / 2)));
 
-        JLabel title = new JLabel("회원 가입 정보를 입력하세요", SwingConstants.LEFT);
+        JLabel title = new JLabel("🧩 당신의 정보를 평소에 회원을 가입하는 방식대로 입력해 주세요", SwingConstants.LEFT);
         title.setForeground(new Color(28, 48, 84));
         title.setFont(title.getFont().deriveFont(Font.BOLD, 20f));
         card.add(title, BorderLayout.NORTH);
@@ -310,7 +314,7 @@ public class MainFrame extends JFrame {
 
         JTextField nameField = new JTextField();
         configureInputField(nameField);
-        addFormRow(formPanel, 0, "이름", nameField);
+        addFormRow(formPanel, 0, "🙋‍♂️ 이름", nameField);
         nameField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
@@ -320,7 +324,7 @@ public class MainFrame extends JFrame {
 
         JTextField emailField = new JTextField();
         configureInputField(emailField);
-        addFormRow(formPanel, 1, "이메일", emailField);
+        addFormRow(formPanel, 1, "✉️ 이메일", emailField);
         emailField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
@@ -331,17 +335,17 @@ public class MainFrame extends JFrame {
         JTextField birthField = new JTextField();
         configureInputField(birthField);
         birthField.setToolTipText("예: 2008-05-21");
-        addFormRow(formPanel, 2, "생년월일", birthField);
+        addFormRow(formPanel, 2, "🎂 생년월일", birthField);
 
         JPasswordField passwordInput = new JPasswordField();
         configureInputField(passwordInput);
         passwordInput.setEchoChar('•');
-        addFormRow(formPanel, 3, "비밀번호", passwordInput);
+        addFormRow(formPanel, 3, "🔑 비밀번호", passwordInput);
 
         JPasswordField confirmInput = new JPasswordField();
         configureInputField(confirmInput);
         confirmInput.setEchoChar('•');
-        addFormRow(formPanel, 4, "비밀번호 확인", confirmInput);
+        addFormRow(formPanel, 4, "🧾 비밀번호 확인", confirmInput);
 
         GridBagConstraints fillerConstraints = new GridBagConstraints();
         fillerConstraints.gridx = 0;
@@ -464,7 +468,7 @@ public class MainFrame extends JFrame {
         field.setColumns(18);
         field.setFont(field.getFont().deriveFont(Font.PLAIN, 14f));
         field.setForeground(new Color(30, 45, 80));
-        field.setBackground(new Color(255, 255, 255, 235));
+        field.setBackground(new Color(255, 255, 255));
         field.setCaretColor(new Color(40, 70, 120));
         field.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(150, 170, 210), 1, true),
@@ -486,20 +490,24 @@ public class MainFrame extends JFrame {
 
         JPanel animationCard = createGlassPanel();
         animationCard.setLayout(new BorderLayout(0, 12));
-        JLabel animationTitle = new JLabel("실시간 해커 방어 시뮬레이션", SwingConstants.LEFT);
+        JLabel animationTitle = new JLabel("🕵️‍♂️ 실시간 해커 동향 시뮬레이션", SwingConstants.LEFT);
         animationTitle.setForeground(new Color(28, 48, 84));
         animationTitle.setFont(animationTitle.getFont().deriveFont(Font.BOLD, 16f));
         rememberFont(animationTitle);
         animationCard.add(animationTitle, BorderLayout.NORTH);
-        HackerAnimationPanel animationPanel = new HackerAnimationPanel();
-        animationPanel.setPreferredSize(new Dimension(320, 260));
-        animationCard.add(animationPanel, BorderLayout.CENTER);
+        hackerAnimationPanel.setPreferredSize(new Dimension(320, 260));
+        animationCard.add(hackerAnimationPanel, BorderLayout.CENTER);
         wrapper.add(animationCard);
 
         wrapper.add(Box.createVerticalStrut(18));
 
         JPanel illustrationCard = createGlassPanel();
-        illustrationCard.setLayout(new BorderLayout());
+        illustrationCard.setLayout(new BorderLayout(0, 12));
+        JLabel illustrationTitle = new JLabel("🔒 보안 요소 미리보기", SwingConstants.LEFT);
+        illustrationTitle.setForeground(new Color(28, 48, 84));
+        illustrationTitle.setFont(illustrationTitle.getFont().deriveFont(Font.BOLD, 16f));
+        rememberFont(illustrationTitle);
+        illustrationCard.add(illustrationTitle, BorderLayout.NORTH);
         illustrationPanel.setPreferredSize(new Dimension(320, 220));
         illustrationCard.add(illustrationPanel, BorderLayout.CENTER);
         wrapper.add(illustrationCard);
@@ -533,8 +541,23 @@ public class MainFrame extends JFrame {
 
     private void updateFeedback(String password) {
         stopAnalysisAnimation();
+        if (password == null || password.isBlank()) {
+            showInitialNarrative();
+            return;
+        }
         PasswordStrengthChecker.Analysis analysis = checker.analyze(password);
         applyAnalysisResult(analysis, password);
+    }
+
+    private void showInitialNarrative() {
+        hackerAnimationPanel.showSnooping();
+        hackerAnimationPanel.updateProgress(0);
+        strengthBar.setValue(0);
+        strengthBar.setForeground(new Color(82, 120, 220));
+        strengthBar.setString("분석 대기 중");
+        feedbackArea.setText("초기 감시 상태입니다. 해커가 정보를 노리고 기웃거리고 있어요!\n" +
+                "\n'시작' 버튼을 누르고 회원가입을 진행하면 방어 절차가 시작됩니다.");
+        feedbackArea.setCaretPosition(0);
     }
 
     private void applyAnalysisResult(PasswordStrengthChecker.Analysis analysis, String password) {
@@ -718,29 +741,42 @@ public class MainFrame extends JFrame {
 
     private void startAnimatedAnalysis(String password) {
         stopAnalysisAnimation();
+        stopResetCycle();
+        defeatAnimationShown = false;
         PasswordStrengthChecker.Analysis analysis = checker.analyze(password);
         final long duration = 10_000L;
         final long startTime = System.currentTimeMillis();
         strengthBar.setForeground(new Color(82, 120, 220));
         strengthBar.setValue(0);
-        strengthBar.setString("분석 중... 0%");
-        feedbackArea.setText("비밀번호를 세밀하게 분석하는 중입니다...\n긴장감 넘치는 사운드를 느껴보세요!");
+        strengthBar.setString("방어 강화 중... 0%");
+        feedbackArea.setText("해커가 열쇠를 돌려 잠금을 해제하려고 합니다!\n" +
+                "진행률이 오르는 동안 방어 분석이 강화되고 있어요.");
         feedbackArea.setCaretPosition(0);
 
         playSuspenseSound(duration);
+        hackerAnimationPanel.showAttempting();
+        hackerAnimationPanel.updateProgress(0);
 
         analysisTimer = new Timer(40, event -> {
             long elapsed = System.currentTimeMillis() - startTime;
             double progress = Math.min(1.0, (double) elapsed / duration);
             int percent = (int) Math.round(progress * 100);
             strengthBar.setValue(percent);
-            strengthBar.setString(String.format("분석 중... %d%%", percent));
+            strengthBar.setString(String.format("방어 강화 중... %d%%", percent));
+            hackerAnimationPanel.updateProgress(progress);
+            if (!defeatAnimationShown && progress >= 0.3) {
+                defeatAnimationShown = true;
+                hackerAnimationPanel.showDefeated();
+                feedbackArea.append("\n\n해커가 결국 포기하고 항복했습니다!\n분석 결과를 정리하는 중이에요.");
+                feedbackArea.setCaretPosition(0);
+            }
             if (progress >= 1.0) {
                 Timer source = (Timer) event.getSource();
                 source.stop();
                 analysisTimer = null;
                 stopSuspenseSound();
                 applyAnalysisResult(analysis, password);
+                scheduleResetCycle();
             }
         });
         analysisTimer.setCoalesce(true);
@@ -753,6 +789,7 @@ public class MainFrame extends JFrame {
             analysisTimer = null;
         }
         stopSuspenseSound();
+        stopResetCycle();
     }
 
     private void stopSuspenseSound() {
@@ -761,6 +798,34 @@ public class MainFrame extends JFrame {
             suspenseClip.close();
             suspenseClip = null;
         }
+    }
+
+    private void stopResetCycle() {
+        if (resetTimer != null) {
+            resetTimer.stop();
+            resetTimer = null;
+        }
+    }
+
+    private void scheduleResetCycle() {
+        stopResetCycle();
+        resetTimer = new Timer(10_000, e -> {
+            Timer source = (Timer) e.getSource();
+            source.stop();
+            resetTimer = null;
+            resetToInitialState();
+        });
+        resetTimer.setRepeats(false);
+        resetTimer.start();
+    }
+
+    private void resetToInitialState() {
+        suppressLiveFeedback = true;
+        passwordField.setText("");
+        suppressLiveFeedback = false;
+        userProfile = null;
+        defeatAnimationShown = false;
+        showInitialNarrative();
     }
 
     private void playSuspenseSound(long durationMillis) {
